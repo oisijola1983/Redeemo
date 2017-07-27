@@ -1,0 +1,42 @@
+          # Checks the database to ensure the specified code is not taken
+          def active_code?(code)
+            find :first, :conditions => {:code => code}
+          end
+
+        end
+        
+        def redeemable? #:nodoc:
+          self.included_modules.include?(InstanceMethods)
+        end
+      end
+      
+      module InstanceMethods
+
+        # Marks the redeemable redeemed by the given user id
+        # * +redeemed_by_id+ - id of redeeming user
+        def redeem!(redeemed_by_id)
+          unless self.redeemed? or self.expired?
+            self.update_attributes({:redeemed_by_id => redeemed_by_id, :recipient_id => redeemed_by_id, :redeemed_at => Time.now}) 
+            self.after_redeem
+	   end
+        end
+
+        # Returns whether or not the redeemable has been redeemed
+        def redeemed?
+          self.redeemed_at?
+        end
+
+        # Returns whether or not the redeemable has expired
+        def expired?
+          self.expires_on? and self.expires_on < Time.now
+        end
+
+        def setup_new #:nodoc:
+          self.code = self.class.generate_unique_code
+          unless self.class.valid_for.nil? or self.expires_on?
+            self.expires_on = self.created_at + self.class.valid_for
+          end
+        end
+        
+        # Callback for business logic to implement after redemption
+        def after_redeem() end
